@@ -1,0 +1,8 @@
+{
+  "name": "Biometric Sphere Proto",
+  "description": "A state-of-the-art multi-modal biometric security prototype integrating facial recognition, voice liveness analysis, behavioral dynamics, and blockchain verification using Gemini AI.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
