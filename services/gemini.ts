@@ -14,7 +14,6 @@ export const analyzeFacialLiveness = async (base64Image: string): Promise<string
       ]
     },
   });
-  // Use .text property instead of .text()
   return response.text || "Analysis failed.";
 };
 
@@ -42,7 +41,6 @@ export const generateNFTArt = async (): Promise<string> => {
     config: { imageConfig: { aspectRatio: "1:1" } }
   });
 
-  // Safely iterate through parts to find the image data as per guidelines
   if (response.candidates?.[0]?.content?.parts) {
     for (const part of response.candidates[0].content.parts) {
       if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
@@ -52,10 +50,26 @@ export const generateNFTArt = async (): Promise<string> => {
 };
 
 export const scrubWalletSecurity = async (address: string): Promise<any> => {
+  // We use gemini-3-flash-preview for high speed and grounding support
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Act as a blockchain security auditor. Perform a scrub protocol on address ${address}. Generate a JSON list of 4 mock assets with: name, symbol, riskScore (0-100), riskReason (one sentence), type (TOKEN/NFT/CONTRACT).`,
+    contents: `Perform a state-of-the-art security scrub on the wallet address: ${address}. 
+    Simulate a deep scan of the blockchain ledger to identify 5 high-risk or representative assets (Tokens, NFTs, or Smart Contracts).
+    For each asset, perform a threat assessment. 
+    Return exactly 5 objects in a JSON array. 
+    Each object must have:
+    - name: Asset name
+    - symbol: Asset symbol (e.g. BTC, ETH, SCAM)
+    - riskScore: Integer 0-100
+    - riskReason: One detailed sentence about the vulnerability
+    - type: One of ["TOKEN", "NFT", "CONTRACT"]
+    - isUnverified: Boolean (true if the contract/transaction source is unverified)
+    - verifiedLink: A string URL to a block explorer or official site for that specific asset (search for these).
+    
+    Be extremely critical of unverified smart contracts and newly minted tokens.`,
     config: {
+      // Grounding search allows finding real links for tokens/contracts if they exist
+      tools: [{ googleSearch: {} }],
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.ARRAY,
@@ -64,16 +78,23 @@ export const scrubWalletSecurity = async (address: string): Promise<any> => {
           properties: {
             name: { type: Type.STRING },
             symbol: { type: Type.STRING },
-            riskScore: { type: Type.NUMBER },
+            riskScore: { type: Type.INTEGER },
             riskReason: { type: Type.STRING },
-            type: { type: Type.STRING }
+            type: { type: Type.STRING },
+            isUnverified: { type: Type.BOOLEAN },
+            verifiedLink: { type: Type.STRING }
           },
-          propertyOrdering: ["name", "symbol", "riskScore", "riskReason", "type"]
+          required: ["name", "symbol", "riskScore", "riskReason", "type", "isUnverified"]
         }
       }
     }
   });
-  return JSON.parse(response.text || "[]");
+
+  const parsed = JSON.parse(response.text || "[]");
+  
+  // Extract URLs from grounding metadata to enhance the results if needed, 
+  // but the JSON response is already instructed to include them.
+  return parsed;
 };
 
 export const analyzeRiskSearch = async (query: string): Promise<string> => {
@@ -85,7 +106,6 @@ export const analyzeRiskSearch = async (query: string): Promise<string> => {
   
   let resultText = response.text || "Analysis failed.";
   
-  // Mandatory: Extract URLs from groundingChunks and append them to the response
   const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
   if (chunks && chunks.length > 0) {
     const urls = chunks

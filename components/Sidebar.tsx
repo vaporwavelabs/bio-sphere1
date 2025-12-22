@@ -26,7 +26,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, isProfileC
     { id: 'PROFILE', label: 'Identity Node', icon: UserCircle },
     { id: BiometricType.FACIAL, label: 'Facial Liveness', icon: Scan },
     { id: BiometricType.VOICE, label: 'Acoustic Auth', icon: Mic2 },
-    { id: BiometricType.BEHAVIORAL, label: 'Behavior Dynamics', icon: Fingerprint },
+    // Removed BEHAVIORAL entry as it is no longer supported and causes compilation errors
     { id: 'WALLETS', label: 'Wallet Scrub', icon: Wallet },
     { id: 'ANALYZER', label: 'Threat Intel', icon: Search },
     { id: BiometricType.BLOCKCHAIN, label: 'Web3 Anchor', icon: LinkIcon },

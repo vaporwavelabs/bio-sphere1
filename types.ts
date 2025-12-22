@@ -2,7 +2,6 @@
 export enum BiometricType {
   FACIAL = 'FACIAL',
   VOICE = 'VOICE',
-  BEHAVIORAL = 'BEHAVIORAL',
   BLOCKCHAIN = 'BLOCKCHAIN'
 }
 
@@ -23,6 +22,7 @@ export interface UserProfile {
   nftUri?: string;
   isMinted: boolean;
   walletAddress?: string;
+  isIdGenerated?: boolean;
 }
 
 export interface WalletAsset {
@@ -33,6 +33,7 @@ export interface WalletAsset {
   riskReason: string;
   type: 'TOKEN' | 'NFT' | 'CONTRACT';
   verifiedLink?: string;
+  isUnverified?: boolean;
 }
 
 export interface SecurityLog {
@@ -41,10 +42,4 @@ export interface SecurityLog {
   event: string;
   severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   source: string;
-}
-
-export interface KeystrokeData {
-  key: string;
-  pressTime: number;
-  releaseTime: number;
 }

@@ -14,11 +14,13 @@ const DataBank: React.FC<DataBankProps> = ({ user }) => {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    const requiredTypes = [BiometricType.FACIAL, BiometricType.VOICE, BiometricType.BEHAVIORAL];
+    // Removed BEHAVIORAL from required types as it is no longer supported
+    const requiredTypes = [BiometricType.FACIAL, BiometricType.VOICE];
     const completed = requiredTypes.filter(type => 
       user.results.some(r => r.type === type && r.status === 'Pass')
     ).length;
-    setIsReady(completed === 3);
+    // Updated requirement to 2 types to match the rest of the application
+    setIsReady(completed === 2);
 
     const generateEntries = async () => {
       if (user.results.length === 0) return;
@@ -50,7 +52,7 @@ const DataBank: React.FC<DataBankProps> = ({ user }) => {
           Encrypted Data Bank
         </h2>
         <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${isReady ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/10 text-red-400 border border-red-500/30'}`}>
-          {isReady ? '3-AUTH_READY' : '3-AUTH_REQUIRED'}
+          {isReady ? '2-AUTH_READY' : '2-AUTH_REQUIRED'}
         </div>
       </div>
 
@@ -93,11 +95,11 @@ const DataBank: React.FC<DataBankProps> = ({ user }) => {
               Decipher Engine
             </h3>
             <p className="text-xs text-slate-500 mb-6 leading-relaxed">
-              Records are transcribed into raw packet streams. Deciphering requires valid signatures from all three primary authenticators.
+              Records are transcribed into raw packet streams. Deciphering requires valid signatures from both primary authenticators.
             </p>
             
             <div className="space-y-3 mb-8">
-              {[BiometricType.FACIAL, BiometricType.VOICE, BiometricType.BEHAVIORAL].map(type => {
+              {[BiometricType.FACIAL, BiometricType.VOICE].map(type => {
                 const isPassed = user.results.some(r => r.type === type && r.status === 'Pass');
                 return (
                   <div key={type} className="flex items-center justify-between p-3 bg-slate-900 rounded-xl border border-slate-800">

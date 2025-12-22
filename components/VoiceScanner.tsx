@@ -1,12 +1,14 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { BiometricType, BiometricResult } from '../types';
 import { analyzeVoiceLiveness } from '../services/gemini';
-import { Mic, Square, Loader2, Volume2, ShieldCheck, Waves } from 'lucide-react';
+import { Mic, Square, Loader2, Volume2, ShieldCheck, Waves, RefreshCw } from 'lucide-react';
 
 interface VoiceScannerProps {
   onComplete: (result: BiometricResult) => void;
 }
+
+const VOICE_WORDS = ["Quantum", "Cipher", "Entropy", "Sphere", "Nexus", "Vertex", "Prism", "Obsidian", "Void", "Glitch", "Protocol", "Synapse"];
 
 const VoiceScanner: React.FC<VoiceScannerProps> = ({ onComplete }) => {
   const [isRecording, setIsRecording] = useState(false);
@@ -14,10 +16,20 @@ const VoiceScanner: React.FC<VoiceScannerProps> = ({ onComplete }) => {
   const [timer, setTimer] = useState(0);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [feedback, setFeedback] = useState("Click to begin secure recording...");
+  const [challengeWords, setChallengeWords] = useState<string[]>([]);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerIntervalRef = useRef<any>(null);
+
+  const generateWords = () => {
+    const shuffled = [...VOICE_WORDS].sort(() => 0.5 - Math.random());
+    setChallengeWords(shuffled.slice(0, 3));
+  };
+
+  useEffect(() => {
+    generateWords();
+  }, []);
 
   const startRecording = async () => {
     try {
@@ -32,7 +44,7 @@ const VoiceScanner: React.FC<VoiceScannerProps> = ({ onComplete }) => {
       recorder.start();
       setIsRecording(true);
       setTimer(0);
-      setFeedback("Listening for signature... Speak clearly.");
+      setFeedback("Speak the words below clearly into the terminal.");
       
       timerIntervalRef.current = setInterval(() => {
         setTimer(prev => prev + 1);
@@ -57,7 +69,7 @@ const VoiceScanner: React.FC<VoiceScannerProps> = ({ onComplete }) => {
     setAudioUrl(url);
     
     setIsAnalyzing(true);
-    setFeedback("Gemini Acoustic Verification in progress...");
+    setFeedback(`Verifying voice signature for words: ${challengeWords.join(', ')}...`);
 
     try {
       const arrayBuffer = await blob.arrayBuffer();
@@ -74,7 +86,7 @@ const VoiceScanner: React.FC<VoiceScannerProps> = ({ onComplete }) => {
         type: BiometricType.VOICE,
         timestamp: Date.now(),
         score: score,
-        details: analysis,
+        details: `Voice words: ${challengeWords.join(' ')}. ${analysis}`,
         status: score > 75 ? 'Pass' : 'Fail'
       });
       setFeedback("Voice verification successful.");
@@ -94,44 +106,40 @@ const VoiceScanner: React.FC<VoiceScannerProps> = ({ onComplete }) => {
           </div>
           Acoustic Auth Node
         </h2>
-        <div className="text-xs font-mono text-slate-500">SESSION_ID: VOC_881</div>
+        <button onClick={generateWords} className="text-slate-500 hover:text-blue-400 transition-colors">
+          <RefreshCw size={16} />
+        </button>
       </div>
 
-      <div className="bg-slate-950 rounded-2xl p-12 flex flex-col items-center border border-slate-800 relative overflow-hidden">
-        {/* Animated Background Pulse */}
+      <div className="bg-slate-950 rounded-2xl p-8 flex flex-col items-center border border-slate-800 relative overflow-hidden">
         {isRecording && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="w-32 h-32 bg-blue-500/10 rounded-full animate-ping"></div>
-            <div className="w-48 h-48 bg-blue-500/5 rounded-full animate-ping" style={{ animationDelay: '0.5s' }}></div>
           </div>
         )}
 
-        <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 transition-all duration-300 ${
+        <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 transition-all duration-300 ${
           isRecording ? 'bg-red-500 shadow-[0_0_30px_rgba(239,68,68,0.4)] scale-110' : 'bg-slate-800'
         }`}>
-          {isRecording ? <Square size={32} className="text-white fill-current" /> : <Mic size={32} className="text-blue-400" />}
+          {isRecording ? <Square size={28} className="text-white fill-current" /> : <Mic size={28} className="text-blue-400" />}
         </div>
 
-        <div className="text-3xl font-mono mb-4 tabular-nums">
+        <div className="mb-6 text-center">
+          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Verification Phrase</div>
+          <div className="flex flex-wrap justify-center gap-3">
+            {challengeWords.map((word, i) => (
+              <span key={i} className={`px-4 py-2 rounded-xl border border-slate-800 font-mono text-xl ${isRecording ? 'text-blue-400 border-blue-500/30' : 'text-slate-400'}`}>
+                {word}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="text-2xl font-mono mb-4 tabular-nums">
           00:{timer.toString().padStart(2, '0')}
         </div>
 
-        <div className="flex gap-2 mb-6">
-          {[1,2,3,4,5,6].map(i => (
-            <div 
-              key={i} 
-              className={`w-1 bg-blue-400 rounded-full transition-all duration-100 ${
-                isRecording ? 'animate-bounce' : 'h-2 opacity-20'
-              }`}
-              style={{ 
-                height: isRecording ? `${Math.random() * 40 + 10}px` : '8px',
-                animationDelay: `${i * 0.1}s` 
-              }}
-            ></div>
-          ))}
-        </div>
-
-        <p className={`text-sm font-medium ${isAnalyzing ? 'text-cyan-400 animate-pulse' : 'text-slate-400'}`}>
+        <p className={`text-sm font-medium text-center ${isAnalyzing ? 'text-cyan-400 animate-pulse' : 'text-slate-400'}`}>
           {feedback}
         </p>
       </div>
@@ -141,7 +149,7 @@ const VoiceScanner: React.FC<VoiceScannerProps> = ({ onComplete }) => {
           <button
             onClick={startRecording}
             disabled={isAnalyzing}
-            className="px-10 py-4 bg-blue-500 hover:bg-blue-400 text-slate-950 font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)] flex items-center gap-2"
+            className="w-full py-4 bg-blue-500 hover:bg-blue-400 text-slate-950 font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)] flex items-center justify-center gap-2"
           >
             <Mic size={20} />
             INIT RECORDING
@@ -149,7 +157,7 @@ const VoiceScanner: React.FC<VoiceScannerProps> = ({ onComplete }) => {
         ) : (
           <button
             onClick={stopRecording}
-            className="px-10 py-4 bg-red-500 hover:bg-red-400 text-white font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(239,68,68,0.3)] flex items-center gap-2"
+            className="w-full py-4 bg-red-500 hover:bg-red-400 text-white font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(239,68,68,0.3)] flex items-center justify-center gap-2"
           >
             <Square size={20} />
             STOP & VERIFY
@@ -170,13 +178,8 @@ const VoiceScanner: React.FC<VoiceScannerProps> = ({ onComplete }) => {
       )}
 
       <style>{`
-        @keyframes progress {
-          from { width: 0%; }
-          to { width: 100%; }
-        }
-        .animate-progress {
-          animation: progress 2s ease-out forwards;
-        }
+        @keyframes progress { from { width: 0%; } to { width: 100%; } }
+        .animate-progress { animation: progress 2s ease-out forwards; }
       `}</style>
     </div>
   );

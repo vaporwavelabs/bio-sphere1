@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BiometricType, BiometricResult } from '../types';
 import { generateBiometricHash, generateNFTArt } from '../services/gemini';
 import { Link as LinkIcon, ShieldCheck, Database, Cpu, Globe, ExternalLink, Loader2, Image as ImageIcon } from 'lucide-react';
@@ -7,22 +7,40 @@ import { Link as LinkIcon, ShieldCheck, Database, Cpu, Globe, ExternalLink, Load
 interface BlockchainPortalProps {
   sessionSummary: string;
   onMintComplete: (nftUri: string, result: BiometricResult) => void;
+  onWalletConnect: (address: string) => void;
+  initialAddress?: string;
   isMinted: boolean;
 }
 
-const BlockchainPortal: React.FC<BlockchainPortalProps> = ({ sessionSummary, onMintComplete, isMinted }) => {
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+const BlockchainPortal: React.FC<BlockchainPortalProps> = ({ sessionSummary, onMintComplete, onWalletConnect, initialAddress, isMinted }) => {
+  const [walletAddress, setWalletAddress] = useState<string | null>(initialAddress || null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isStoring, setIsStoring] = useState(false);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [nftPreview, setNftPreview] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (initialAddress) {
+      setWalletAddress(initialAddress);
+    }
+  }, [initialAddress]);
+
   const connectWallet = async () => {
-    setIsConnecting(true);
-    setTimeout(() => {
-      setWalletAddress("0x71C7656EC7ab88b098defB751B7401B5f6d8976F");
-      setIsConnecting(false);
-    }, 1200);
+    if (typeof (window as any).ethereum !== 'undefined') {
+      setIsConnecting(true);
+      try {
+        const accounts = await (window as any).ethereum.request({ method: 'eth_requestAccounts' });
+        const address = accounts[0];
+        setWalletAddress(address);
+        onWalletConnect(address);
+      } catch (err) {
+        console.error("User denied account access or error occurred:", err);
+      } finally {
+        setIsConnecting(false);
+      }
+    } else {
+      alert("MetaMask not detected. Please install it to anchor your identity on-chain.");
+    }
   };
 
   const mintProfileNFT = async () => {
@@ -74,6 +92,11 @@ const BlockchainPortal: React.FC<BlockchainPortalProps> = ({ sessionSummary, onM
             <ShieldCheck size={48} className="text-emerald-400 mx-auto mb-4" />
             <h3 className="text-xl font-bold text-emerald-400">Anchor Verified</h3>
             <p className="text-slate-500 text-sm mt-2">This profile is already linked to a secure NFT anchor.</p>
+            {walletAddress && (
+              <div className="mt-4 px-4 py-2 bg-emerald-500/10 rounded-xl border border-emerald-500/20 inline-block font-mono text-[10px] text-emerald-400">
+                {walletAddress}
+              </div>
+            )}
          </div>
       ) : (
         <>
@@ -95,21 +118,32 @@ const BlockchainPortal: React.FC<BlockchainPortalProps> = ({ sessionSummary, onM
           </div>
 
           {!walletAddress ? (
-            <div className="text-center py-12 border-2 border-dashed border-slate-800 rounded-2xl">
+            <div className="text-center py-12 border-2 border-dashed border-slate-800 rounded-2xl bg-slate-950/50">
               <button
                 onClick={connectWallet}
                 disabled={isConnecting}
-                className="px-10 py-4 bg-slate-100 hover:bg-white text-slate-950 font-bold rounded-xl transition-all flex items-center gap-2 mx-auto"
+                className="px-10 py-4 bg-[#F6851B] hover:bg-[#E2761B] text-white font-bold rounded-xl transition-all flex items-center gap-3 mx-auto shadow-lg shadow-orange-500/20 active:scale-95"
               >
-                {isConnecting ? <Loader2 size={20} className="animate-spin" /> : <ShieldCheck size={20} />}
-                CONNECT WALLET
+                {isConnecting ? (
+                  <Loader2 size={20} className="animate-spin" />
+                ) : (
+                  <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Identity.svg" className="w-6 h-6" alt="MetaMask" />
+                )}
+                CONNECT METAMASK
               </button>
+              <p className="mt-4 text-[10px] text-slate-600 uppercase tracking-widest font-bold">Injected Provider Required</p>
             </div>
           ) : (
             <div className="space-y-6">
-              <div className="bg-emerald-500/5 border border-emerald-500/20 p-4 rounded-xl flex items-center justify-between">
-                <span className="text-xs font-mono text-emerald-400 truncate w-3/4">{walletAddress}</span>
-                <span className="text-[10px] bg-emerald-500/20 px-2 py-0.5 rounded text-emerald-400">CONNECTED</span>
+              <div className="bg-emerald-500/5 border border-emerald-500/20 p-4 rounded-xl flex items-center justify-between animate-in fade-in duration-300">
+                <div className="flex flex-col">
+                  <span className="text-[8px] font-black text-emerald-500/60 uppercase mb-0.5">Linked Address</span>
+                  <span className="text-xs font-mono text-emerald-400 truncate max-w-[200px] md:max-w-md">{walletAddress}</span>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/20 rounded-lg border border-emerald-500/20">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div>
+                  <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Connected</span>
+                </div>
               </div>
 
               {!txHash ? (
@@ -127,21 +161,24 @@ const BlockchainPortal: React.FC<BlockchainPortalProps> = ({ sessionSummary, onM
                   <button
                     onClick={mintProfileNFT}
                     disabled={isStoring}
-                    className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.3)] flex items-center justify-center gap-2"
+                    className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.3)] flex items-center justify-center gap-2 transition-all active:scale-95"
                   >
                     <Database size={20} />
                     MINT IDENTITY ANCHOR
                   </button>
                 </div>
               ) : (
-                <div className="bg-slate-950 p-6 rounded-2xl border border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.1)] flex gap-6">
-                  <div className="w-32 h-32 rounded-xl overflow-hidden border border-slate-800 bg-black">
+                <div className="bg-slate-950 p-6 rounded-2xl border border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.1)] flex gap-6 animate-in slide-in-from-bottom-4">
+                  <div className="w-32 h-32 rounded-xl overflow-hidden border border-slate-800 bg-black shadow-inner">
                     {nftPreview && <img src={nftPreview} alt="NFT" className="w-full h-full object-cover" />}
                   </div>
-                  <div className="flex-1">
-                    <h3 className="font-bold text-emerald-400 mb-2">Anchor Minted Successfully</h3>
-                    <p className="text-xs text-slate-500 mb-4 font-mono truncate">{txHash}</p>
-                    <button className="flex items-center gap-2 text-[10px] text-slate-400 hover:text-white">
+                  <div className="flex-1 flex flex-col justify-center">
+                    <h3 className="font-bold text-emerald-400 mb-2 uppercase text-sm">Anchor Minted Successfully</h3>
+                    <div className="bg-slate-900 p-2 rounded-lg mb-4 border border-slate-800">
+                      <p className="text-[10px] text-slate-500 mb-1 font-bold uppercase">Transaction Hash</p>
+                      <p className="text-[10px] text-emerald-500/80 font-mono truncate">{txHash}</p>
+                    </div>
+                    <button className="flex items-center gap-2 text-[10px] text-slate-400 hover:text-white transition-colors uppercase font-black">
                       <ExternalLink size={12} />
                       View On-Chain Receipt
                     </button>
@@ -153,9 +190,16 @@ const BlockchainPortal: React.FC<BlockchainPortalProps> = ({ sessionSummary, onM
         </>
       )}
 
-      <p className="mt-8 text-[10px] text-slate-600 text-center leading-tight">
-        The minted NFT serves as a unique wallet anchor. Binary art generation is non-reversible and unique to your identity stream.
-      </p>
+      <div className="mt-8 p-4 bg-slate-950/50 border border-slate-800 rounded-xl">
+        <div className="flex items-start gap-3">
+          <div className="p-1.5 bg-blue-500/10 rounded-lg mt-0.5">
+            <Cpu size={14} className="text-blue-400" />
+          </div>
+          <p className="text-[9px] text-slate-500 text-center leading-tight uppercase tracking-wider font-medium">
+            The identity anchor uses an EIP-721 standard NFT. Each art piece is uniquely generated by Gemini 2.5 Flash from your combined biometric data stream.
+          </p>
+        </div>
+      </div>
     </div>
   );
 };

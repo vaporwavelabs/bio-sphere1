@@ -2,7 +2,7 @@
 import React from 'react';
 import { BiometricResult, BiometricType, SecurityLog } from '../types';
 import { 
-  TrendingUp, ShieldCheck, Clock, Activity, ArrowRight, Fingerprint, Mic2, Scan, Wallet, Search 
+  TrendingUp, ShieldCheck, Clock, Activity, ArrowRight, Mic2, Scan, Wallet, Search, Sparkles, CheckCircle2 
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -10,14 +10,16 @@ interface DashboardProps {
   onNavigate: (view: any) => void;
   progress: number;
   logs: SecurityLog[];
+  isIdGenerated?: boolean;
+  onGenerateId: () => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ results, onNavigate, progress, logs }) => {
+const Dashboard: React.FC<DashboardProps> = ({ results, onNavigate, progress, logs, isIdGenerated, onGenerateId }) => {
   const stats = [
     { label: 'Security Score', value: `${progress}%`, icon: ShieldCheck, color: 'text-cyan-400' },
     { label: 'Verified Auth', value: results.filter(r => r.status === 'Pass').length, icon: Activity, color: 'text-emerald-400' },
     { label: 'Threats', value: logs.filter(l => l.severity === 'HIGH').length, icon: Clock, color: 'text-red-400' },
-    { label: 'Uptime', value: '99.9%', icon: TrendingUp, color: 'text-purple-400' },
+    { label: 'ID Status', value: isIdGenerated ? 'VERIFIED' : 'PENDING', icon: Sparkles, color: isIdGenerated ? 'text-cyan-400' : 'text-slate-600' },
   ];
 
   return (
@@ -27,7 +29,7 @@ const Dashboard: React.FC<DashboardProps> = ({ results, onNavigate, progress, lo
           <div key={stat.label} className="bg-slate-900 border border-slate-800 p-4 md:p-6 rounded-2xl md:rounded-3xl">
             <stat.icon size={16} className={`${stat.color} mb-2 md:mb-4`} />
             <div className="text-[8px] md:text-[10px] font-bold text-slate-500 uppercase mb-0.5 md:mb-1 tracking-widest">{stat.label}</div>
-            <div className="text-xl md:text-3xl font-bold">{stat.value}</div>
+            <div className="text-xl md:text-2xl font-bold tracking-tight">{stat.value}</div>
           </div>
         ))}
       </div>
@@ -41,8 +43,7 @@ const Dashboard: React.FC<DashboardProps> = ({ results, onNavigate, progress, lo
                <div className="space-y-3 md:space-y-4">
                   {[
                     { type: BiometricType.FACIAL, label: 'Facial Identification', icon: Scan },
-                    { type: BiometricType.VOICE, label: 'Acoustic Print', icon: Mic2 },
-                    { type: BiometricType.BEHAVIORAL, label: 'Behavioral Rhythm', icon: Fingerprint }
+                    { type: BiometricType.VOICE, label: 'Acoustic Print', icon: Mic2 }
                   ].map(item => {
                     const passed = results.some(r => r.type === item.type && r.status === 'Pass');
                     return (
@@ -58,6 +59,32 @@ const Dashboard: React.FC<DashboardProps> = ({ results, onNavigate, progress, lo
                     );
                   })}
                </div>
+
+               {progress === 100 && !isIdGenerated && (
+                 <div className="mt-8 p-6 bg-cyan-500/5 border border-cyan-500/30 rounded-2xl animate-in zoom-in-95 duration-500 text-center">
+                    <Sparkles className="text-cyan-400 mx-auto mb-3" size={32} />
+                    <h4 className="text-lg font-bold mb-2">Biometric Data Set Complete</h4>
+                    <p className="text-xs text-slate-400 mb-6 uppercase tracking-wider">Ready to generate your unique identity signature.</p>
+                    <button 
+                      onClick={onGenerateId}
+                      className="w-full py-4 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold rounded-xl transition-all shadow-[0_0_25px_rgba(34,211,238,0.4)] flex items-center justify-center gap-2 uppercase tracking-widest text-sm"
+                    >
+                      <Sparkles size={18} /> Generate Unique ID
+                    </button>
+                 </div>
+               )}
+
+               {isIdGenerated && (
+                 <div className="mt-8 p-6 bg-emerald-500/5 border border-emerald-500/30 rounded-2xl flex items-center gap-4">
+                    <div className="p-3 bg-emerald-500/20 rounded-full">
+                      <CheckCircle2 className="text-emerald-400" size={32} />
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-bold text-emerald-400">Node Identity Finalized</h4>
+                      <p className="text-xs text-slate-400 uppercase font-mono">HASH::88a2...c41e | STATUS::IMMUTABLE</p>
+                    </div>
+                 </div>
+               )}
             </div>
          </div>
 
@@ -79,7 +106,7 @@ const Dashboard: React.FC<DashboardProps> = ({ results, onNavigate, progress, lo
             </div>
             
             <div className="bg-slate-900 border border-slate-800 p-5 md:p-6 rounded-2xl md:rounded-3xl">
-               <h3 className="font-bold mb-3 md:mb-4 flex items-center gap-2 text-xs md:text-sm text-slate-500 uppercase tracking-widest">Decoy Status</h3>
+               <h3 className="font-bold mb-3 md:mb-4 flex items-center gap-2 text-xs md:text-sm text-slate-500 uppercase tracking-widest">Node Decoys</h3>
                <div className="flex flex-wrap gap-1 md:gap-2">
                   {[1,2,3,4,5,6,7,8].map(i => (
                     <div key={i} className="w-6 md:w-8 h-1 rounded-full bg-emerald-500/10">

@@ -3,10 +3,26 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Biometric Sphere Proto</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <style>
+    :root {
+      --ios-safe-bottom: env(safe-area-inset-bottom);
+      --ios-safe-top: env(safe-area-inset-top);
+    }
+    body {
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      background-color: #020617;
+    }
+    input, textarea {
+      user-select: text;
+      font-size: 16px !important; /* Prevents iOS auto-zoom on focus */
+    }
+  </style>
 <script type="importmap">
 {
   "imports": {
