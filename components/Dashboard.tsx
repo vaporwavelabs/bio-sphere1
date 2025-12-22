@@ -1,10 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BiometricResult, BiometricType, SecurityLog, WalletNode } from '../types';
 import SecurityLogs from './SecurityLogs';
 import { 
   ShieldCheck, Clock, Activity, ArrowRight, Mic2, Scan, Wallet, Search, Sparkles, CheckCircle2, 
-  Database, UserCircle, Link as LinkIcon, Lock, AlertCircle, HardDrive, Loader2, Send, Zap, Globe
+  Database, UserCircle, Link as LinkIcon, Lock, AlertCircle, HardDrive, Loader2, Send, Zap, Globe, Cpu, ChevronRight
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -22,7 +22,8 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ 
   results, onNavigate, progress, logs, isIdGenerated, onGenerateId, wallets, onWalletConnect, isMinted 
 }) => {
-  const [isConnecting, setIsConnecting] = useState(false);
+  const [connectStep, setConnectStep] = useState<'IDLE' | 'DETECTING' | 'SYNCING' | 'AUTHORIZING'>('IDLE');
+  const [statusMsg, setStatusMsg] = useState("Initialize Handshake Protocol");
 
   const stats = [
     { label: 'Integrity', value: `${progress}%`, icon: ShieldCheck, color: 'text-cyan-400' },
@@ -33,46 +34,107 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const handleWalletLink = async () => {
     if (typeof (window as any).ethereum !== 'undefined') {
-      setIsConnecting(true);
       try {
+        setConnectStep('DETECTING');
+        setStatusMsg("Detecting Web3 Provider...");
+        
+        // Brief delay for effect
+        await new Promise(r => setTimeout(r, 1200));
+        
+        setConnectStep('SYNCING');
+        setStatusMsg("Synchronizing Distributed Ledger...");
         const accounts = await (window as any).ethereum.request({ method: 'eth_requestAccounts' });
+        
+        await new Promise(r => setTimeout(r, 800));
+        setConnectStep('AUTHORIZING');
+        setStatusMsg("Authorizing Biometric Identity Node...");
+        
+        await new Promise(r => setTimeout(r, 1000));
         const address = accounts[0];
         onWalletConnect(address);
         onNavigate('WALLETS');
       } catch (err) {
         console.error("Wallet link failed", err);
-      } finally {
-        setIsConnecting(false);
+        setConnectStep('IDLE');
+        setStatusMsg("Handshake Failed. Re-initialize.");
       }
     } else {
-      alert("Ethereum provider (MetaMask) required.");
+      alert("Ethereum provider (MetaMask) required for secure ledger anchoring.");
     }
   };
 
+  const connectedWallet = wallets?.find(w => w.address);
+
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-20">
-      {/* Dynamic CTA Banner */}
-      {!wallets?.some(w => w.address) ? (
-        <div className="bg-gradient-to-r from-orange-500/20 via-orange-500/10 to-transparent border border-orange-500/30 p-8 rounded-[3rem] shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 group">
-          <div className="flex items-center gap-6">
-            <div className="p-5 bg-orange-500/10 rounded-3xl border border-orange-500/20 group-hover:scale-110 transition-transform">
-              <Wallet className="text-orange-500" size={32} />
+      {/* Dynamic CTA Banner / Connected Widget */}
+      {!connectedWallet ? (
+        <div className="bg-gradient-to-br from-orange-500/20 via-orange-500/5 to-slate-950 border border-orange-500/30 p-8 rounded-[3.5rem] shadow-2xl flex flex-col md:flex-row items-center justify-between gap-8 group relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/5 blur-[100px] pointer-events-none"></div>
+          
+          <div className="flex items-center gap-8 relative z-10">
+            <div className={`p-6 rounded-[2rem] border transition-all duration-700 ${connectStep !== 'IDLE' ? 'bg-orange-500 shadow-[0_0_40px_rgba(249,115,22,0.4)] rotate-12 scale-110 border-white/20' : 'bg-orange-500/10 border-orange-500/20 group-hover:scale-105'}`}>
+              <Wallet className={connectStep !== 'IDLE' ? 'text-white animate-pulse' : 'text-orange-500'} size={40} />
             </div>
             <div>
-              <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-1">Node Synchronization Required</h3>
-              <p className="text-orange-500/60 text-[10px] font-black uppercase tracking-widest">Connect provider to authorize ledger access</p>
+              <h3 className="text-2xl font-black text-white uppercase tracking-tighter mb-2 italic">Web3_Sync_Required</h3>
+              <div className="flex flex-col gap-1">
+                <p className="text-orange-500/60 text-[10px] font-black uppercase tracking-[0.3em]">{statusMsg}</p>
+                {connectStep !== 'IDLE' && (
+                  <div className="w-48 h-1 bg-slate-900 rounded-full mt-2 overflow-hidden border border-slate-800">
+                    <div className="h-full bg-orange-500 animate-pulse w-full"></div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
+          
           <button 
             onClick={handleWalletLink}
-            disabled={isConnecting}
-            className="w-full md:w-auto px-10 py-5 bg-orange-500 hover:bg-orange-400 text-slate-950 font-black rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 uppercase tracking-widest text-xs shadow-xl shadow-orange-500/20"
+            disabled={connectStep !== 'IDLE'}
+            className="w-full md:w-auto px-12 py-6 bg-orange-500 hover:bg-orange-400 disabled:bg-slate-800 text-slate-950 font-black rounded-3xl flex items-center justify-center gap-4 transition-all active:scale-95 uppercase tracking-[0.2em] text-xs shadow-2xl shadow-orange-500/30 border-t border-white/20"
           >
-            {isConnecting ? <Loader2 className="animate-spin" size={20} /> : <Zap size={20} />}
-            Initialize Wallet Node
+            {connectStep !== 'IDLE' ? <Loader2 className="animate-spin" size={20} /> : <Zap size={20} />}
+            {connectStep !== 'IDLE' ? 'Handshake Active' : 'Initialize Handshake'}
           </button>
         </div>
-      ) : !isMinted && (
+      ) : (
+        <div className="bg-gradient-to-r from-cyan-500/10 via-slate-900 to-slate-900 border border-cyan-500/20 p-8 rounded-[3.5rem] shadow-2xl flex flex-col lg:flex-row items-center justify-between gap-8 group relative overflow-hidden">
+          <div className="flex items-center gap-6">
+            <div className="relative">
+              <div className="p-5 bg-cyan-500/10 rounded-3xl border border-cyan-500/20 shadow-inner">
+                <Cpu className="text-cyan-400" size={32} />
+              </div>
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-4 border-slate-950 animate-pulse"></div>
+            </div>
+            <div>
+              <div className="flex items-center gap-3 mb-1">
+                <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest bg-cyan-500/10 px-3 py-0.5 rounded-full border border-cyan-500/20">LIVE_HANDSHAKE_ACTIVE</span>
+                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Net: Ethereum_Mainnet</span>
+              </div>
+              <h3 className="text-xl font-black text-white uppercase tracking-tighter truncate max-w-[200px] md:max-w-none">
+                {connectedWallet.address.substring(0, 8)}...{connectedWallet.address.substring(36)}
+              </h3>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 w-full lg:w-auto">
+             <div className="flex-1 lg:flex-none flex flex-col items-end px-6 border-r border-slate-800">
+               <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">NODE_VALUE</span>
+               <span className="text-lg font-black text-white">{connectedWallet.totalValue}</span>
+             </div>
+             <button 
+              onClick={() => onNavigate('WALLETS')}
+              className="flex-1 lg:flex-none px-8 py-5 bg-slate-800 hover:bg-cyan-500 hover:text-slate-950 text-slate-300 font-black rounded-2xl transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-[10px]"
+             >
+                Audit Node <ChevronRight size={14} />
+             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Identity Anchor Banner (If wallet connected but not minted) */}
+      {connectedWallet && !isMinted && (
         <div className="bg-gradient-to-r from-emerald-500/20 via-emerald-500/10 to-transparent border border-emerald-500/30 p-8 rounded-[3rem] shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 group animate-in slide-in-from-top-4">
           <div className="flex items-center gap-6">
             <div className="p-5 bg-emerald-500/10 rounded-3xl border border-emerald-500/20 group-hover:scale-110 transition-transform relative">
@@ -80,15 +142,15 @@ const Dashboard: React.FC<DashboardProps> = ({
               <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full animate-ping"></div>
             </div>
             <div>
-              <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-1">Identity Anchor Pending</h3>
-              <p className="text-emerald-500/60 text-[10px] font-black uppercase tracking-widest">Mint profile NFT to anchor node on-chain</p>
+              <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-1 italic tracking-widest">Anchor_Registry_Pending</h3>
+              <p className="text-emerald-500/60 text-[10px] font-black uppercase tracking-widest">Mint genesis profile NFT to finalize identity node</p>
             </div>
           </div>
           <button 
             onClick={() => onNavigate(BiometricType.BLOCKCHAIN)}
             className="w-full md:w-auto px-10 py-5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 uppercase tracking-widest text-xs shadow-xl shadow-emerald-500/20"
           >
-            <Sparkles size={20} /> Anchor Identity NFT
+            <Sparkles size={20} /> Finalize Genesis Mint
           </button>
         </div>
       )}

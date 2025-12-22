@@ -24,7 +24,22 @@ const App: React.FC = () => {
 
   useEffect(() => {
     (window as any).appSetView = setActiveView;
-  }, []);
+    
+    // Auto-discover Wallet Connection if user is logged in
+    const checkWallet = async () => {
+      if (typeof (window as any).ethereum !== 'undefined' && currentUser) {
+        try {
+          const accounts = await (window as any).ethereum.request({ method: 'eth_accounts' });
+          if (accounts.length > 0 && !currentUser.walletAddress) {
+            handleWalletConnect(accounts[0]);
+          }
+        } catch (err) {
+          console.debug("Wallet auto-connect failed", err);
+        }
+      }
+    };
+    checkWallet();
+  }, [currentUser]);
 
   // Machine Check Disabled: Now only requiring Facial and Voice
   const progressPercent = useMemo(() => {
@@ -127,18 +142,29 @@ const App: React.FC = () => {
 
   const handleWalletConnect = (address: string) => {
     if (!currentUser) return;
+    // Check if this wallet is already in the list
+    if (currentUser.wallets.some(w => w.address.toLowerCase() === address.toLowerCase())) return;
+
     const newNode: WalletNode = {
       id: Math.random().toString(36).substr(2, 5),
       address,
-      name: 'Connected Node',
-      totalValue: 'Checking...',
-      securityScore: 100,
+      name: 'Primary Connected Node',
+      totalValue: '1.82 ETH', // Default simulated balance
+      securityScore: 92,
       isLocked: false,
       assets: []
     };
     const updated = { ...currentUser, wallets: [newNode, ...currentUser.wallets], walletAddress: address };
     setCurrentUser(updated);
     localStorage.setItem(`profile_${currentUser.username}`, JSON.stringify(updated));
+    
+    setLogs(prev => [{
+      id: 'WEB3-' + Math.random().toString(36).substr(2, 4).toUpperCase(),
+      timestamp: Date.now(),
+      event: `Handshake Success: Wallet ${address.substring(0, 6)}... Linked`,
+      severity: 'LOW',
+      source: 'METAMASK_PROVIDER'
+    }, ...prev]);
   };
 
   const handleRestoreRequest = (walletId: string) => {
