@@ -26,9 +26,10 @@ const App: React.FC = () => {
     (window as any).appSetView = setActiveView;
   }, []);
 
+  // Machine Check Disabled: Now only requiring Facial and Voice
   const progressPercent = useMemo(() => {
     if (!currentUser) return 0;
-    const required = [BiometricType.FACIAL, BiometricType.VOICE, BiometricType.SCAN_MACHINE];
+    const required = [BiometricType.FACIAL, BiometricType.VOICE];
     const completed = required.filter(type => currentUser.results.some(r => r.type === type && r.status === 'Pass')).length;
     return Math.round((completed / required.length) * 100);
   }, [currentUser]);
@@ -53,7 +54,6 @@ const App: React.FC = () => {
     
     setIsGeneratingId(true);
     setTimeout(() => {
-      // Mock some wallets for existing users to show the feature
       const wallets: WalletNode[] = targetUser.wallets.length > 0 ? targetUser.wallets : [
         {
           id: 'w1',
@@ -87,12 +87,11 @@ const App: React.FC = () => {
     if (!currentUser) return;
     const updated = { ...currentUser, results: [result, ...currentUser.results] };
     
-    const required = [BiometricType.FACIAL, BiometricType.VOICE, BiometricType.SCAN_MACHINE];
+    const required = [BiometricType.FACIAL, BiometricType.VOICE];
     const completed = required.filter(type => updated.results.some(r => r.type === type && r.status === 'Pass')).length;
     const isComplete = completed === required.length;
 
     if (restoringWalletId) {
-      // Handle wallet restoration completion
       const walletToRestore = updated.wallets.find(w => w.id === restoringWalletId);
       if (walletToRestore && result.status === 'Pass') {
         const restoredWallets = updated.wallets.map(w => 
@@ -111,7 +110,7 @@ const App: React.FC = () => {
     localStorage.setItem(`profile_${currentUser.username}`, JSON.stringify(updated));
     
     if (onboardingStep !== null) {
-      if (onboardingStep < 2) {
+      if (onboardingStep < 1) { 
         setOnboardingStep(onboardingStep + 1);
       } else {
         setOnboardingStep(null);
@@ -144,10 +143,9 @@ const App: React.FC = () => {
 
   const handleRestoreRequest = (walletId: string) => {
     setRestoringWalletId(walletId);
-    setActiveView(BiometricType.FACIAL); // Start with facial for restoration
+    setActiveView(BiometricType.FACIAL);
   };
 
-  // Fix: Implemented missing handleMintComplete function to update profile state after minting.
   const handleMintComplete = (nftUri: string, result: BiometricResult) => {
     if (!currentUser) return;
     const updated = { 
@@ -166,7 +164,6 @@ const App: React.FC = () => {
     if (onboardingStep !== null) {
       if (onboardingStep === 0) return <div className="py-12"><FacialScanner onComplete={addResult} /></div>;
       if (onboardingStep === 1) return <div className="py-12"><VoiceScanner onComplete={addResult} /></div>;
-      if (onboardingStep === 2) return <div className="py-12"><ScanMachine username={currentUser.username} onComplete={addResult} /></div>;
     }
 
     if (isGeneratingId) {
@@ -193,6 +190,7 @@ const App: React.FC = () => {
           onGenerateId={() => handleGenerateId()}
           wallets={currentUser.wallets}
           onWalletConnect={handleWalletConnect}
+          isMinted={currentUser.isMinted}
         />
       );
       case 'PROFILE': return <ProfileManager onLogin={setCurrentUser} currentUser={currentUser} onStartOnboarding={() => setOnboardingStep(0)} />;
@@ -229,7 +227,7 @@ const App: React.FC = () => {
           />
         </div>
       );
-      default: return <Dashboard results={currentUser.results} onNavigate={setActiveView} progress={progressPercent} logs={logs} isIdGenerated={currentUser.isIdGenerated} onGenerateId={() => handleGenerateId()} onWalletConnect={handleWalletConnect} wallets={currentUser.wallets} />;
+      default: return <Dashboard results={currentUser.results} onNavigate={setActiveView} progress={progressPercent} logs={logs} isIdGenerated={currentUser.isIdGenerated} onGenerateId={() => handleGenerateId()} onWalletConnect={handleWalletConnect} wallets={currentUser.wallets} isMinted={currentUser.isMinted} />;
     }
   };
 
@@ -252,11 +250,13 @@ const App: React.FC = () => {
           {currentUser && (
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 p-2 pr-5 rounded-2xl shadow-xl">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center border border-cyan-500/30 bg-cyan-500/5 overflow-hidden shadow-inner">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center border bg-cyan-500/5 overflow-hidden shadow-inner transition-all ${currentUser.isMinted ? 'border-emerald-500 shadow-emerald-500/20' : 'border-cyan-500/30'}`}>
                   {currentUser.nftUri ? <img src={currentUser.nftUri} className="w-full h-full object-cover" /> : <User size={20} className="text-cyan-400" />}
                 </div>
                 <div>
-                  <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Verified Node</div>
+                  <div className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${currentUser.isMinted ? 'text-emerald-400' : 'text-slate-500'}`}>
+                    {currentUser.isMinted ? 'ANCHORED_NODE' : 'VERIFIED_NODE'}
+                  </div>
                   <div className="text-xs font-bold tracking-tight uppercase truncate max-w-[100px]">{currentUser.username}</div>
                 </div>
               </div>
