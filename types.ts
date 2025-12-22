@@ -23,6 +23,20 @@ export interface WalletNode {
   securityScore: number;
   isLocked: boolean;
   assets: WalletAsset[];
+  providerName?: string; // Track which wallet was used
+}
+
+// EIP-6963 Interfaces
+export interface EIP6963ProviderDetail {
+  info: EIP6963ProviderInfo;
+  provider: any;
+}
+
+export interface EIP6963ProviderInfo {
+  uuid: string;
+  name: string;
+  icon: string;
+  rdns: string;
 }
 
 export interface UserProfile {
@@ -32,7 +46,7 @@ export interface UserProfile {
   results: BiometricResult[];
   nftUri?: string;
   isMinted: boolean;
-  walletAddress?: string; // Legacy support
+  walletAddress?: string;
   wallets: WalletNode[];
   isIdGenerated?: boolean;
 }

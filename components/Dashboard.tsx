@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { BiometricResult, BiometricType, SecurityLog, WalletNode } from '../types';
+import { BiometricResult, BiometricType, SecurityLog, WalletNode, EIP6963ProviderDetail } from '../types';
 import SecurityLogs from './SecurityLogs';
 import { 
   ShieldCheck, Clock, Activity, ArrowRight, Mic2, Scan, Wallet, Search, Sparkles, CheckCircle2, 
-  Database, UserCircle, Link as LinkIcon, Lock, AlertCircle, HardDrive, Loader2, Send, Zap, Globe, Cpu, ChevronRight
+  Database, UserCircle, Link as LinkIcon, Lock, AlertCircle, HardDrive, Loader2, Send, Zap, Globe, Cpu, ChevronRight, Fingerprint
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -15,15 +15,17 @@ interface DashboardProps {
   isIdGenerated?: boolean;
   onGenerateId: () => void;
   wallets: WalletNode[];
-  onWalletConnect: (address: string) => void;
+  onWalletConnect: (address: string, providerName: string) => void;
   isMinted: boolean;
+  detectedProviders: EIP6963ProviderDetail[];
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
-  results, onNavigate, progress, logs, isIdGenerated, onGenerateId, wallets, onWalletConnect, isMinted 
+  results, onNavigate, progress, logs, isIdGenerated, onGenerateId, wallets, onWalletConnect, isMinted, detectedProviders 
 }) => {
-  const [connectStep, setConnectStep] = useState<'IDLE' | 'DETECTING' | 'SYNCING' | 'AUTHORIZING'>('IDLE');
-  const [statusMsg, setStatusMsg] = useState("Initialize Handshake Protocol");
+  const [connectStep, setConnectStep] = useState<'IDLE' | 'SELECTING' | 'CONNECTING'>('IDLE');
+  const [selectedProvider, setSelectedProvider] = useState<EIP6963ProviderDetail | null>(null);
+  const [statusMsg, setStatusMsg] = useState("Scan for Ingress Nodes");
 
   const stats = [
     { label: 'Integrity', value: `${progress}%`, icon: ShieldCheck, color: 'text-cyan-400' },
@@ -32,71 +34,118 @@ const Dashboard: React.FC<DashboardProps> = ({
     { label: 'Threats', value: logs.filter(l => l.severity === 'HIGH').length || 0, icon: Clock, color: 'text-red-400' },
   ];
 
-  const handleWalletLink = async () => {
-    if (typeof (window as any).ethereum !== 'undefined') {
-      try {
-        setConnectStep('DETECTING');
-        setStatusMsg("Detecting Web3 Provider...");
-        
-        // Brief delay for effect
-        await new Promise(r => setTimeout(r, 1200));
-        
-        setConnectStep('SYNCING');
-        setStatusMsg("Synchronizing Distributed Ledger...");
-        const accounts = await (window as any).ethereum.request({ method: 'eth_requestAccounts' });
-        
-        await new Promise(r => setTimeout(r, 800));
-        setConnectStep('AUTHORIZING');
-        setStatusMsg("Authorizing Biometric Identity Node...");
-        
-        await new Promise(r => setTimeout(r, 1000));
-        const address = accounts[0];
-        onWalletConnect(address);
-        onNavigate('WALLETS');
-      } catch (err) {
-        console.error("Wallet link failed", err);
-        setConnectStep('IDLE');
-        setStatusMsg("Handshake Failed. Re-initialize.");
-      }
-    } else {
-      alert("Ethereum provider (MetaMask) required for secure ledger anchoring.");
+  const handleConnect = async (detail: EIP6963ProviderDetail) => {
+    setSelectedProvider(detail);
+    setConnectStep('CONNECTING');
+    setStatusMsg(`Connecting to ${detail.info.name} Protocol...`);
+    
+    try {
+      await new Promise(r => setTimeout(r, 1000));
+      const accounts = await detail.provider.request({ method: 'eth_requestAccounts' });
+      
+      await new Promise(r => setTimeout(r, 500));
+      onWalletConnect(accounts[0], detail.info.name);
+      onNavigate('WALLETS');
+    } catch (err) {
+      console.error("Wallet connection failed", err);
+      setConnectStep('SELECTING');
+      setStatusMsg("Connection Aborted. Try again.");
     }
   };
 
   const connectedWallet = wallets?.find(w => w.address);
 
+  // Default browser provider if no EIP-6963 found
+  const browserProvider: any = (window as any).ethereum;
+
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-20">
-      {/* Dynamic CTA Banner / Connected Widget */}
+      {/* Ingress Node Hub (Wallet Selector) */}
       {!connectedWallet ? (
-        <div className="bg-gradient-to-br from-orange-500/20 via-orange-500/5 to-slate-950 border border-orange-500/30 p-8 rounded-[3.5rem] shadow-2xl flex flex-col md:flex-row items-center justify-between gap-8 group relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/5 blur-[100px] pointer-events-none"></div>
+        <div className="bg-slate-900 border border-slate-800 rounded-[3.5rem] shadow-2xl relative overflow-hidden p-8 animate-in slide-in-from-top-8 duration-700">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/5 blur-[120px] pointer-events-none"></div>
           
-          <div className="flex items-center gap-8 relative z-10">
-            <div className={`p-6 rounded-[2rem] border transition-all duration-700 ${connectStep !== 'IDLE' ? 'bg-orange-500 shadow-[0_0_40px_rgba(249,115,22,0.4)] rotate-12 scale-110 border-white/20' : 'bg-orange-500/10 border-orange-500/20 group-hover:scale-105'}`}>
-              <Wallet className={connectStep !== 'IDLE' ? 'text-white animate-pulse' : 'text-orange-500'} size={40} />
-            </div>
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8 mb-10 relative z-10">
             <div>
-              <h3 className="text-2xl font-black text-white uppercase tracking-tighter mb-2 italic">Web3_Sync_Required</h3>
-              <div className="flex flex-col gap-1">
-                <p className="text-orange-500/60 text-[10px] font-black uppercase tracking-[0.3em]">{statusMsg}</p>
-                {connectStep !== 'IDLE' && (
-                  <div className="w-48 h-1 bg-slate-900 rounded-full mt-2 overflow-hidden border border-slate-800">
-                    <div className="h-full bg-orange-500 animate-pulse w-full"></div>
+              <div className="flex items-center gap-3 mb-2">
+                 <div className="w-2 h-2 rounded-full bg-orange-500 animate-ping"></div>
+                 <h3 className="text-xl font-black text-white uppercase tracking-tighter italic">Ledger_Ingress_Discovery</h3>
+              </div>
+              <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.4em]">{statusMsg}</p>
+            </div>
+            
+            {connectStep === 'IDLE' && (
+              <button 
+                onClick={() => setConnectStep('SELECTING')}
+                className="px-8 py-4 bg-orange-500 hover:bg-orange-400 text-slate-950 font-black rounded-2xl flex items-center gap-3 transition-all active:scale-95 uppercase tracking-widest text-[10px] shadow-xl shadow-orange-500/20"
+              >
+                <Fingerprint size={16} /> Scan for Providers
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative z-10">
+            {connectStep === 'IDLE' ? (
+              <div className="col-span-full py-16 text-center border-2 border-dashed border-slate-800 rounded-[2.5rem] bg-slate-950/20 group hover:border-slate-700 transition-colors">
+                <Globe size={48} className="mx-auto text-slate-800 mb-6 group-hover:text-cyan-500/20 transition-colors" />
+                <p className="text-[10px] text-slate-700 font-black uppercase tracking-[0.5em]">Awaiting Discovery Command</p>
+              </div>
+            ) : connectStep === 'SELECTING' ? (
+              <>
+                {detectedProviders.map((detail) => (
+                  <button
+                    key={detail.info.uuid}
+                    onClick={() => handleConnect(detail)}
+                    className="flex items-center gap-5 p-6 bg-slate-950 border border-slate-800 rounded-3xl hover:border-orange-500/50 hover:bg-slate-900/50 transition-all text-left group shadow-lg"
+                  >
+                    <div className="w-14 h-14 p-2 bg-slate-900 rounded-2xl border border-slate-800 flex-shrink-0 group-hover:scale-110 transition-transform flex items-center justify-center overflow-hidden">
+                      <img src={detail.info.icon} alt={detail.info.name} className="w-full h-full object-contain" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-black text-white uppercase tracking-widest mb-1">{detail.info.name}</div>
+                      <div className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">Injected Node Found</div>
+                    </div>
+                  </button>
+                ))}
+                
+                {/* Fallback for standard injected providers if EIP-6963 not supported or empty */}
+                {detectedProviders.length === 0 && browserProvider && (
+                   <button
+                    onClick={() => handleConnect({ provider: browserProvider, info: { name: 'Browser Wallet', uuid: 'legacy', icon: '', rdns: '' } })}
+                    className="flex items-center gap-5 p-6 bg-slate-950 border border-slate-800 rounded-3xl hover:border-orange-500/50 hover:bg-slate-900/50 transition-all text-left group shadow-lg"
+                  >
+                    <div className="w-14 h-14 p-3 bg-slate-900 rounded-2xl border border-slate-800 flex-shrink-0 group-hover:scale-110 transition-transform flex items-center justify-center">
+                      <Wallet className="text-orange-500" size={24} />
+                    </div>
+                    <div>
+                      <div className="text-sm font-black text-white uppercase tracking-widest mb-1">Generic Node</div>
+                      <div className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">Default Provider Detected</div>
+                    </div>
+                  </button>
+                )}
+
+                {detectedProviders.length === 0 && !browserProvider && (
+                  <div className="col-span-full py-10 bg-red-500/5 border border-red-500/20 rounded-3xl text-center">
+                    <AlertCircle className="text-red-500 mx-auto mb-3" size={24} />
+                    <p className="text-[10px] text-red-400 font-black uppercase tracking-widest">No Injected Providers Detected</p>
                   </div>
                 )}
+              </>
+            ) : (
+              <div className="col-span-full py-20 bg-slate-950 rounded-[2.5rem] border border-orange-500/20 flex flex-col items-center">
+                 <div className="relative mb-8">
+                   <Loader2 className="text-orange-500 animate-spin" size={64} />
+                   {selectedProvider?.info.icon && (
+                     <img 
+                      src={selectedProvider.info.icon} 
+                      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 opacity-50" 
+                     />
+                   )}
+                 </div>
+                 <div className="text-xs font-black text-white uppercase tracking-[0.5em] animate-pulse">Establishing Bridge Protocol...</div>
               </div>
-            </div>
+            )}
           </div>
-          
-          <button 
-            onClick={handleWalletLink}
-            disabled={connectStep !== 'IDLE'}
-            className="w-full md:w-auto px-12 py-6 bg-orange-500 hover:bg-orange-400 disabled:bg-slate-800 text-slate-950 font-black rounded-3xl flex items-center justify-center gap-4 transition-all active:scale-95 uppercase tracking-[0.2em] text-xs shadow-2xl shadow-orange-500/30 border-t border-white/20"
-          >
-            {connectStep !== 'IDLE' ? <Loader2 className="animate-spin" size={20} /> : <Zap size={20} />}
-            {connectStep !== 'IDLE' ? 'Handshake Active' : 'Initialize Handshake'}
-          </button>
         </div>
       ) : (
         <div className="bg-gradient-to-r from-cyan-500/10 via-slate-900 to-slate-900 border border-cyan-500/20 p-8 rounded-[3.5rem] shadow-2xl flex flex-col lg:flex-row items-center justify-between gap-8 group relative overflow-hidden">
@@ -109,7 +158,9 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-3 mb-1">
-                <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest bg-cyan-500/10 px-3 py-0.5 rounded-full border border-cyan-500/20">LIVE_HANDSHAKE_ACTIVE</span>
+                <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest bg-cyan-500/10 px-3 py-0.5 rounded-full border border-cyan-500/20">
+                  {connectedWallet.providerName ? `${connectedWallet.providerName.toUpperCase()}_NODE_SYNCED` : 'LIVE_HANDSHAKE_ACTIVE'}
+                </span>
                 <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Net: Ethereum_Mainnet</span>
               </div>
               <h3 className="text-xl font-black text-white uppercase tracking-tighter truncate max-w-[200px] md:max-w-none">
@@ -133,7 +184,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       )}
 
-      {/* Identity Anchor Banner (If wallet connected but not minted) */}
+      {/* Identity Anchor Banner */}
       {connectedWallet && !isMinted && (
         <div className="bg-gradient-to-r from-emerald-500/20 via-emerald-500/10 to-transparent border border-emerald-500/30 p-8 rounded-[3rem] shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 group animate-in slide-in-from-top-4">
           <div className="flex items-center gap-6">
@@ -167,7 +218,6 @@ const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Column: Wallets & Restoration Status */}
         <div className="lg:col-span-5 space-y-6">
           <div className="bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
             <div className="flex items-center justify-between mb-6">
@@ -198,14 +248,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                       </div>
                     </div>
                   </div>
-                  {wallet.isLocked && (
-                    <button 
-                      onClick={() => onNavigate('WALLETS')}
-                      className="mt-4 w-full py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] font-black uppercase tracking-widest rounded-xl border border-red-500/20 flex items-center justify-center gap-2"
-                    >
-                      <Lock size={12} /> INITIATE_ID_RECOVERY
-                    </button>
-                  )}
                 </div>
               )) : (
                 <div className="text-center py-10 text-slate-700">
@@ -230,57 +272,38 @@ const Dashboard: React.FC<DashboardProps> = ({
                   </div>
                 );
               })}
-              <div className="flex items-center justify-between p-4 bg-slate-950/20 rounded-2xl border border-slate-900 border-dashed opacity-30">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 italic">MACHINE_SCAN_BYPASSED</span>
-                <Clock size={14} className="text-slate-800" />
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Right Column: Threat Log Feed */}
         <div className="lg:col-span-7 flex flex-col gap-8">
-          {isIdGenerated ? (
-            <div className="space-y-8 animate-in slide-in-from-right-8 duration-700">
-              <SecurityLogs logs={logs} />
-
-              <div className="bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] shadow-2xl">
-                <div className="flex items-center justify-between mb-8">
-                  <h3 className="text-xl font-black uppercase tracking-tight flex items-center gap-3">
-                    <Database className="text-indigo-400" size={20} /> Perimeter Commands
-                  </h3>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {[
-                    { id: 'WALLETS', label: 'Wallet Audit', icon: Wallet, desc: 'Scrub & Restore nodes' },
-                    { id: 'ANALYZER', label: 'Threat Intel', icon: Search, desc: 'Scan external domains' },
-                    { id: 'DATABANK', label: 'Vault Access', icon: Database, desc: 'Decrypt node history' },
-                    { id: BiometricType.BLOCKCHAIN, label: 'Ledger Mint', icon: LinkIcon, desc: isMinted ? 'Identity Anchored' : 'Anchor profile NFT' },
-                  ].map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => onNavigate(item.id)}
-                      className={`group flex flex-col items-start p-6 bg-slate-950 border border-slate-800 rounded-3xl transition-all active:scale-95 text-left shadow-lg ${item.id === BiometricType.BLOCKCHAIN && isMinted ? 'border-emerald-500/30 opacity-70' : 'hover:border-cyan-500/50 hover:bg-slate-900'}`}
-                    >
-                      <div className={`p-3 rounded-xl mb-4 transition-colors ${item.id === BiometricType.BLOCKCHAIN && isMinted ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-900 group-hover:bg-cyan-500 group-hover:text-slate-950'}`}>
-                        <item.icon size={20} />
-                      </div>
-                      <div className="text-sm font-black uppercase tracking-widest mb-1">{item.label}</div>
-                      <div className="text-[9px] text-slate-600 font-bold uppercase tracking-wider">{item.desc}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
+          <SecurityLogs logs={logs} />
+          
+          <div className="bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] shadow-2xl">
+            <h3 className="text-xl font-black uppercase tracking-tight flex items-center gap-3 mb-8">
+              <Database className="text-indigo-400" size={20} /> Perimeter Commands
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[
+                { id: 'WALLETS', label: 'Wallet Audit', icon: Wallet, desc: 'Scrub & Restore nodes' },
+                { id: 'ANALYZER', label: 'Threat Intel', icon: Search, desc: 'Scan external domains' },
+                { id: 'DATABANK', label: 'Vault Access', icon: Database, desc: 'Decrypt node history' },
+                { id: BiometricType.BLOCKCHAIN, label: 'Ledger Mint', icon: LinkIcon, desc: isMinted ? 'Identity Anchored' : 'Anchor profile NFT' },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => onNavigate(item.id)}
+                  className={`group flex flex-col items-start p-6 bg-slate-950 border border-slate-800 rounded-3xl transition-all active:scale-95 text-left shadow-lg ${item.id === BiometricType.BLOCKCHAIN && isMinted ? 'border-emerald-500/30 opacity-70' : 'hover:border-cyan-500/50 hover:bg-slate-900'}`}
+                >
+                  <div className={`p-3 rounded-xl mb-4 transition-colors ${item.id === BiometricType.BLOCKCHAIN && isMinted ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-900 group-hover:bg-cyan-500 group-hover:text-slate-950'}`}>
+                    <item.icon size={20} />
+                  </div>
+                  <div className="text-sm font-black uppercase tracking-widest mb-1">{item.label}</div>
+                  <div className="text-[9px] text-slate-600 font-bold uppercase tracking-wider">{item.desc}</div>
+                </button>
+              ))}
             </div>
-          ) : (
-            <div className="flex-1 min-h-[400px] flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-slate-900 rounded-[3rem] bg-slate-950/20">
-              <Lock size={64} className="text-slate-800 mb-6" />
-              <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter mb-2">Terminal Offline</h3>
-              <p className="text-[10px] text-slate-700 font-bold uppercase tracking-[0.3em] max-w-xs">
-                Complete multi-modal biometric auth to initialize node logic.
-              </p>
-            </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

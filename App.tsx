@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { BiometricType, BiometricResult, UserProfile, SecurityLog, WalletNode } from './types';
+import { BiometricType, BiometricResult, UserProfile, SecurityLog, WalletNode, EIP6963ProviderDetail } from './types';
 import Navigation from './components/Navigation';
 import Dashboard from './components/Dashboard';
 import FacialScanner from './components/FacialScanner';
@@ -21,17 +21,35 @@ const App: React.FC = () => {
   const [onboardingStep, setOnboardingStep] = useState<number | null>(null);
   const [isGeneratingId, setIsGeneratingId] = useState(false);
   const [restoringWalletId, setRestoringWalletId] = useState<string | null>(null);
+  
+  // Multi-wallet discovery
+  const [detectedProviders, setDetectedProviders] = useState<EIP6963ProviderDetail[]>([]);
 
   useEffect(() => {
     (window as any).appSetView = setActiveView;
-    
+
+    // EIP-6963: Listen for wallet announcements
+    const onAnnounceProvider = (event: any) => {
+      setDetectedProviders(prev => {
+        if (prev.find(p => p.info.uuid === event.detail.info.uuid)) return prev;
+        return [...prev, event.detail];
+      });
+    };
+
+    window.addEventListener("eip6963:announceProvider", onAnnounceProvider);
+    window.dispatchEvent(new Event("eip6963:requestProvider"));
+
+    return () => window.removeEventListener("eip6963:announceProvider", onAnnounceProvider);
+  }, []);
+
+  useEffect(() => {
     // Auto-discover Wallet Connection if user is logged in
     const checkWallet = async () => {
-      if (typeof (window as any).ethereum !== 'undefined' && currentUser) {
+      if (typeof (window as any).ethereum !== 'undefined' && currentUser && currentUser.wallets.length === 0) {
         try {
           const accounts = await (window as any).ethereum.request({ method: 'eth_accounts' });
-          if (accounts.length > 0 && !currentUser.walletAddress) {
-            handleWalletConnect(accounts[0]);
+          if (accounts.length > 0) {
+            handleWalletConnect(accounts[0], "Detected Provider");
           }
         } catch (err) {
           console.debug("Wallet auto-connect failed", err);
@@ -41,7 +59,6 @@ const App: React.FC = () => {
     checkWallet();
   }, [currentUser]);
 
-  // Machine Check Disabled: Now only requiring Facial and Voice
   const progressPercent = useMemo(() => {
     if (!currentUser) return 0;
     const required = [BiometricType.FACIAL, BiometricType.VOICE];
@@ -140,30 +157,30 @@ const App: React.FC = () => {
     }
   };
 
-  const handleWalletConnect = (address: string) => {
+  const handleWalletConnect = (address: string, providerName: string) => {
     if (!currentUser) return;
-    // Check if this wallet is already in the list
     if (currentUser.wallets.some(w => w.address.toLowerCase() === address.toLowerCase())) return;
 
     const newNode: WalletNode = {
-      id: Math.random().toString(36).substr(2, 5),
+      id: Math.random().toString(36).substr(2, 5).toUpperCase(),
       address,
-      name: 'Primary Connected Node',
-      totalValue: '1.82 ETH', // Default simulated balance
-      securityScore: 92,
+      name: `${providerName} Ingress`,
+      totalValue: '2.14 ETH',
+      securityScore: 94,
       isLocked: false,
-      assets: []
+      assets: [],
+      providerName
     };
     const updated = { ...currentUser, wallets: [newNode, ...currentUser.wallets], walletAddress: address };
     setCurrentUser(updated);
     localStorage.setItem(`profile_${currentUser.username}`, JSON.stringify(updated));
     
     setLogs(prev => [{
-      id: 'WEB3-' + Math.random().toString(36).substr(2, 4).toUpperCase(),
+      id: 'NODE-' + Math.random().toString(36).substr(2, 4).toUpperCase(),
       timestamp: Date.now(),
-      event: `Handshake Success: Wallet ${address.substring(0, 6)}... Linked`,
+      event: `Node Synced: ${providerName} established at ${address.substring(0, 10)}...`,
       severity: 'LOW',
-      source: 'METAMASK_PROVIDER'
+      source: 'WALLET_SYNC_PROTOCOL'
     }, ...prev]);
   };
 
@@ -217,6 +234,7 @@ const App: React.FC = () => {
           wallets={currentUser.wallets}
           onWalletConnect={handleWalletConnect}
           isMinted={currentUser.isMinted}
+          detectedProviders={detectedProviders}
         />
       );
       case 'PROFILE': return <ProfileManager onLogin={setCurrentUser} currentUser={currentUser} onStartOnboarding={() => setOnboardingStep(0)} />;
@@ -247,13 +265,13 @@ const App: React.FC = () => {
           <BlockchainPortal 
             sessionSummary={currentUser.results.map(r => r.details).join(' ')} 
             onMintComplete={handleMintComplete} 
-            onWalletConnect={handleWalletConnect}
+            onWalletConnect={(addr) => handleWalletConnect(addr, "Injected")}
             initialAddress={currentUser.wallets[0]?.address}
             isMinted={currentUser.isMinted} 
           />
         </div>
       );
-      default: return <Dashboard results={currentUser.results} onNavigate={setActiveView} progress={progressPercent} logs={logs} isIdGenerated={currentUser.isIdGenerated} onGenerateId={() => handleGenerateId()} onWalletConnect={handleWalletConnect} wallets={currentUser.wallets} isMinted={currentUser.isMinted} />;
+      default: return <Dashboard results={currentUser.results} onNavigate={setActiveView} progress={progressPercent} logs={logs} isIdGenerated={currentUser.isIdGenerated} onGenerateId={() => handleGenerateId()} onWalletConnect={(addr) => handleWalletConnect(addr, "Injected")} wallets={currentUser.wallets} isMinted={currentUser.isMinted} detectedProviders={detectedProviders} />;
     }
   };
 
