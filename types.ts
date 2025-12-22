@@ -15,6 +15,16 @@ export interface BiometricResult {
   status: 'Pass' | 'Fail' | 'Pending';
 }
 
+export interface WalletNode {
+  id: string;
+  address: string;
+  name: string;
+  totalValue: string;
+  securityScore: number;
+  isLocked: boolean;
+  assets: WalletAsset[];
+}
+
 export interface UserProfile {
   id: string;
   username: string;
@@ -22,7 +32,8 @@ export interface UserProfile {
   results: BiometricResult[];
   nftUri?: string;
   isMinted: boolean;
-  walletAddress?: string;
+  walletAddress?: string; // Legacy support
+  wallets: WalletNode[];
   isIdGenerated?: boolean;
 }
 

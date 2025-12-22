@@ -16,20 +16,29 @@ const ProfileManager: React.FC<ProfileManagerProps> = ({ onLogin, onStartOnboard
   const handleAction = () => {
     if (!username) return;
     if (mode === 'REGISTER') {
+      // Fix: Added missing 'wallets' property to satisfy UserProfile interface requirement.
       const newUser: UserProfile = {
         id: Math.random().toString(36).substr(2, 9),
         username,
         createdAt: Date.now(),
         results: [],
-        isMinted: false
+        isMinted: false,
+        isIdGenerated: false,
+        wallets: []
       };
       localStorage.setItem(`profile_${username}`, JSON.stringify(newUser));
       onLogin(newUser);
       onStartOnboarding();
     } else {
       const stored = localStorage.getItem(`profile_${username}`);
-      if (stored) onLogin(JSON.parse(stored));
-      else alert("Node not identified.");
+      if (stored) {
+        const user = JSON.parse(stored);
+        onLogin(user);
+        // If they haven't finished verification, they might need to restart or continue.
+        // The App component handles the redirection to Dashboard if isIdGenerated is true.
+      } else {
+        alert("Node not identified. Please register your biometric profile.");
+      }
     }
   };
 
@@ -70,7 +79,7 @@ const ProfileManager: React.FC<ProfileManagerProps> = ({ onLogin, onStartOnboard
         <div className="p-4 bg-cyan-500/10 rounded-2xl">
           <ShieldCheck size={40} className="text-cyan-400" />
         </div>
-        <h2 className="text-xl md:text-2xl font-bold tracking-tight">Terminal Onboarding</h2>
+        <h2 className="text-xl md:text-2xl font-bold tracking-tight">Terminal Access</h2>
       </div>
 
       <div className="space-y-4">
@@ -81,12 +90,12 @@ const ProfileManager: React.FC<ProfileManagerProps> = ({ onLogin, onStartOnboard
 
         <div className="flex bg-slate-950 p-1 rounded-2xl border border-slate-800">
           <button onClick={() => setMode('REGISTER')} className={`flex-1 py-3 rounded-xl text-[10px] font-bold transition-all ${mode === 'REGISTER' ? 'bg-slate-800 text-cyan-400' : 'text-slate-500'}`}>CREATE ID</button>
-          <button onClick={() => setMode('LOGIN')} className={`flex-1 py-3 rounded-xl text-[10px] font-bold transition-all ${mode === 'LOGIN' ? 'bg-slate-800 text-cyan-400' : 'text-slate-500'}`}>RESTORE</button>
+          <button onClick={() => setMode('LOGIN')} className={`flex-1 py-3 rounded-xl text-[10px] font-bold transition-all ${mode === 'LOGIN' ? 'bg-slate-800 text-cyan-400' : 'text-slate-500'}`}>LOGIN</button>
         </div>
 
-        <button onClick={handleAction} className="w-full py-4 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-xl shadow-cyan-500/10">
+        <button onClick={handleAction} className="w-full py-4 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-xl shadow-cyan-500/10 uppercase tracking-widest text-xs">
           {mode === 'REGISTER' ? <UserPlus size={18} /> : <LogIn size={18} />}
-          {mode === 'REGISTER' ? 'ENROLL BIOMETRICS' : 'ENTER TERMINAL'}
+          {mode === 'REGISTER' ? 'ENROLL BIOMETRICS' : 'VERIFY & ENTER'}
         </button>
       </div>
     </div>
