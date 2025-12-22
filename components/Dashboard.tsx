@@ -4,7 +4,7 @@ import { BiometricResult, BiometricType, SecurityLog } from '../types';
 import SecurityLogs from './SecurityLogs';
 import { 
   ShieldCheck, Clock, Activity, ArrowRight, Mic2, Scan, Wallet, Search, Sparkles, CheckCircle2, 
-  Database, UserCircle, Link as LinkIcon, Lock, AlertCircle
+  Database, UserCircle, Link as LinkIcon, Lock, AlertCircle, HardDrive
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -59,7 +59,8 @@ const Dashboard: React.FC<DashboardProps> = ({ results, onNavigate, progress, lo
             <div className="space-y-4">
               {[
                 { type: BiometricType.FACIAL, label: 'Face Mesh Capture', icon: Scan },
-                { type: BiometricType.VOICE, label: 'Acoustic Signature', icon: Mic2 }
+                { type: BiometricType.VOICE, label: 'Acoustic Signature', icon: Mic2 },
+                { type: BiometricType.SCAN_MACHINE, label: 'FS_LOCK Identity', icon: HardDrive }
               ].map(item => {
                 const passed = results.some(r => r.type === item.type && r.status === 'Pass');
                 return (

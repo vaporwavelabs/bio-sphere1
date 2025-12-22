@@ -2,7 +2,8 @@
 export enum BiometricType {
   FACIAL = 'FACIAL',
   VOICE = 'VOICE',
-  BLOCKCHAIN = 'BLOCKCHAIN'
+  BLOCKCHAIN = 'BLOCKCHAIN',
+  SCAN_MACHINE = 'SCAN_MACHINE'
 }
 
 export interface BiometricResult {

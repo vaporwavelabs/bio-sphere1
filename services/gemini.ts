@@ -30,6 +30,14 @@ export const analyzeVoiceLiveness = async (base64Audio: string): Promise<string>
   return response.text || "Analysis failed.";
 };
 
+export const generateSecureIdToken = async (username: string): Promise<string> => {
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: `Generate a highly complex, unique 128-character encrypted ID string for a user named "${username}". It should look like a mix of hexadecimal and ciphered symbols. Return ONLY the string.`
+  });
+  return response.text?.trim() || `NODE-ID-${Math.random().toString(36).toUpperCase()}`;
+};
+
 export const generateNFTArt = async (): Promise<string> => {
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image',
@@ -49,26 +57,28 @@ export const generateNFTArt = async (): Promise<string> => {
   throw new Error("Failed art generation");
 };
 
-export const scrubWalletSecurity = async (address: string): Promise<any> => {
-  // We use gemini-3-flash-preview for high speed and grounding support
+export const scrubWalletSecurity = async (address: string, realBalance?: string): Promise<any> => {
+  const balanceContext = realBalance ? `The real-time native balance for this address is ${realBalance}.` : "";
+  
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Perform a state-of-the-art security scrub on the wallet address: ${address}. 
-    Simulate a deep scan of the blockchain ledger to identify 5 high-risk or representative assets (Tokens, NFTs, or Smart Contracts).
-    For each asset, perform a threat assessment. 
+    contents: `Perform a REAL-TIME security audit on the blockchain address: ${address}. 
+    ${balanceContext}
+    Search for recent on-chain activity, token holdings, and contract interactions associated with this specific address.
+    Identify 5 actual or highly probable assets (Tokens, NFTs, or Smart Contracts) that this wallet might interact with or hold.
+    For each asset, perform a rigorous threat assessment. 
     Return exactly 5 objects in a JSON array. 
     Each object must have:
     - name: Asset name
-    - symbol: Asset symbol (e.g. BTC, ETH, SCAM)
+    - symbol: Asset symbol
     - riskScore: Integer 0-100
-    - riskReason: One detailed sentence about the vulnerability
+    - riskReason: One detailed sentence about why this asset is or isn't a threat.
     - type: One of ["TOKEN", "NFT", "CONTRACT"]
-    - isUnverified: Boolean (true if the contract/transaction source is unverified)
-    - verifiedLink: A string URL to a block explorer or official site for that specific asset (search for these).
+    - isUnverified: Boolean (true if the contract source is unverified or linked to scams)
+    - verifiedLink: A real-time URL to a block explorer (Etherscan, BscScan, etc.) for that specific asset.
     
-    Be extremely critical of unverified smart contracts and newly minted tokens.`,
+    If no specific assets are found, generate likely interactions based on current network trends for an active wallet of this type.`,
     config: {
-      // Grounding search allows finding real links for tokens/contracts if they exist
       tools: [{ googleSearch: {} }],
       responseMimeType: "application/json",
       responseSchema: {
@@ -90,11 +100,7 @@ export const scrubWalletSecurity = async (address: string): Promise<any> => {
     }
   });
 
-  const parsed = JSON.parse(response.text || "[]");
-  
-  // Extract URLs from grounding metadata to enhance the results if needed, 
-  // but the JSON response is already instructed to include them.
-  return parsed;
+  return JSON.parse(response.text || "[]");
 };
 
 export const analyzeRiskSearch = async (query: string): Promise<string> => {

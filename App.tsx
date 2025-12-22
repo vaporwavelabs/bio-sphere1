@@ -5,6 +5,7 @@ import Navigation from './components/Navigation';
 import Dashboard from './components/Dashboard';
 import FacialScanner from './components/FacialScanner';
 import VoiceScanner from './components/VoiceScanner';
+import ScanMachine from './components/ScanMachine';
 import BlockchainPortal from './components/BlockchainPortal';
 import ProfileManager from './components/ProfileManager';
 import DataBank from './components/DataBank';
@@ -27,7 +28,7 @@ const App: React.FC = () => {
 
   const progressPercent = useMemo(() => {
     if (!currentUser) return 0;
-    const required = [BiometricType.FACIAL, BiometricType.VOICE];
+    const required = [BiometricType.FACIAL, BiometricType.VOICE, BiometricType.SCAN_MACHINE];
     const completed = required.filter(type => currentUser.results.some(r => r.type === type && r.status === 'Pass')).length;
     return Math.round((completed / required.length) * 100);
   }, [currentUser]);
@@ -53,7 +54,7 @@ const App: React.FC = () => {
     localStorage.setItem(`profile_${currentUser.username}`, JSON.stringify(updated));
     
     if (onboardingStep !== null) {
-      if (onboardingStep < 1) setOnboardingStep(onboardingStep + 1);
+      if (onboardingStep < 2) setOnboardingStep(onboardingStep + 1);
       else {
         setOnboardingStep(null);
         setActiveView('DASHBOARD');
@@ -93,6 +94,7 @@ const App: React.FC = () => {
     if (onboardingStep !== null) {
       if (onboardingStep === 0) return <div className="py-12"><FacialScanner onComplete={addResult} /></div>;
       if (onboardingStep === 1) return <div className="py-12"><VoiceScanner onComplete={addResult} /></div>;
+      if (onboardingStep === 2) return <div className="py-12"><ScanMachine username={currentUser.username} onComplete={addResult} /></div>;
     }
 
     if (isGeneratingId) {
@@ -125,6 +127,7 @@ const App: React.FC = () => {
       case 'ANALYZER': return <div className="animate-in slide-in-from-bottom-8 duration-500"><RiskAnalyzer /></div>;
       case BiometricType.FACIAL: return <div className="py-12"><FacialScanner onComplete={addResult} /></div>;
       case BiometricType.VOICE: return <div className="py-12"><VoiceScanner onComplete={addResult} /></div>;
+      case BiometricType.SCAN_MACHINE: return <div className="py-12"><ScanMachine username={currentUser.username} onComplete={addResult} /></div>;
       case BiometricType.BLOCKCHAIN: return (
         <div className="animate-in slide-in-from-bottom-8 duration-500">
           <BlockchainPortal 
