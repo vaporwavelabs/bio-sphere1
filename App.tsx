@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BiometricType, BiometricResult, UserProfile, SecurityLog, WalletNode, EIP6963ProviderDetail } from './types';
 import Navigation from './components/Navigation';
+import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import FacialScanner from './components/FacialScanner';
 import VoiceScanner from './components/VoiceScanner';
@@ -12,7 +13,7 @@ import DataBank from './components/DataBank';
 import WalletAuditor from './components/WalletAuditor';
 import RiskAnalyzer from './components/RiskAnalyzer';
 import SecurityLogs from './components/SecurityLogs';
-import { ShieldCheck, User, Sparkles, Loader2, LogOut, Lock } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -21,14 +22,11 @@ const App: React.FC = () => {
   const [onboardingStep, setOnboardingStep] = useState<number | null>(null);
   const [isGeneratingId, setIsGeneratingId] = useState(false);
   const [restoringWalletId, setRestoringWalletId] = useState<string | null>(null);
-  
-  // Multi-wallet discovery
   const [detectedProviders, setDetectedProviders] = useState<EIP6963ProviderDetail[]>([]);
 
   useEffect(() => {
     (window as any).appSetView = setActiveView;
 
-    // EIP-6963: Listen for wallet announcements
     const onAnnounceProvider = (event: any) => {
       setDetectedProviders(prev => {
         if (prev.find(p => p.info.uuid === event.detail.info.uuid)) return prev;
@@ -42,23 +40,6 @@ const App: React.FC = () => {
     return () => window.removeEventListener("eip6963:announceProvider", onAnnounceProvider);
   }, []);
 
-  useEffect(() => {
-    // Auto-discover Wallet Connection if user is logged in
-    const checkWallet = async () => {
-      if (typeof (window as any).ethereum !== 'undefined' && currentUser && currentUser.wallets.length === 0) {
-        try {
-          const accounts = await (window as any).ethereum.request({ method: 'eth_accounts' });
-          if (accounts.length > 0) {
-            handleWalletConnect(accounts[0], "Detected Provider");
-          }
-        } catch (err) {
-          console.debug("Wallet auto-connect failed", err);
-        }
-      }
-    };
-    checkWallet();
-  }, [currentUser]);
-
   const progressPercent = useMemo(() => {
     if (!currentUser) return 0;
     const required = [BiometricType.FACIAL, BiometricType.VOICE];
@@ -71,9 +52,9 @@ const App: React.FC = () => {
       const newLog: SecurityLog = {
         id: Math.random().toString(36).substr(2, 9).toUpperCase(),
         timestamp: Date.now(),
-        event: Math.random() > 0.7 ? "External Breach Attempt Blocked" : "Decoy Node Synchronized",
-        severity: Math.random() > 0.8 ? 'HIGH' : 'LOW',
-        source: `IP_ADDR_${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`
+        event: Math.random() > 0.7 ? "Perimeter Sweep Complete" : "External Proxy Scanned",
+        severity: Math.random() > 0.9 ? 'HIGH' : 'LOW',
+        source: `IP_NODE_${Math.floor(Math.random() * 255)}`
       };
       setLogs(prev => [newLog, ...prev].slice(0, 20));
     }, 15000);
@@ -86,33 +67,13 @@ const App: React.FC = () => {
     
     setIsGeneratingId(true);
     setTimeout(() => {
-      const wallets: WalletNode[] = targetUser.wallets.length > 0 ? targetUser.wallets : [
-        {
-          id: 'w1',
-          name: 'Main Ethereum Node',
-          address: '0x71C7656EC7ab88b098defB751B7401B5f6d8976F',
-          totalValue: '1.24 ETH',
-          securityScore: 88,
-          isLocked: false,
-          assets: []
-        },
-        {
-          id: 'w2',
-          name: 'Vault Storage',
-          address: '0xDE765...F821',
-          totalValue: '12.50 ETH',
-          securityScore: 42,
-          isLocked: true,
-          assets: []
-        }
-      ];
-      
+      const wallets: WalletNode[] = targetUser.wallets.length > 0 ? targetUser.wallets : [];
       const updated = { ...targetUser, isIdGenerated: true, wallets };
       setCurrentUser(updated);
       localStorage.setItem(`profile_${targetUser.username}`, JSON.stringify(updated));
       setIsGeneratingId(false);
       setActiveView('DASHBOARD');
-    }, 3000);
+    }, 2000);
   };
 
   const addResult = (result: BiometricResult) => {
@@ -164,9 +125,9 @@ const App: React.FC = () => {
     const newNode: WalletNode = {
       id: Math.random().toString(36).substr(2, 5).toUpperCase(),
       address,
-      name: `${providerName} Ingress`,
-      totalValue: '2.14 ETH',
-      securityScore: 94,
+      name: `${providerName} Node`,
+      totalValue: '3.42 ETH',
+      securityScore: 98,
       isLocked: false,
       assets: [],
       providerName
@@ -174,35 +135,42 @@ const App: React.FC = () => {
     const updated = { ...currentUser, wallets: [newNode, ...currentUser.wallets], walletAddress: address };
     setCurrentUser(updated);
     localStorage.setItem(`profile_${currentUser.username}`, JSON.stringify(updated));
-    
-    setLogs(prev => [{
-      id: 'NODE-' + Math.random().toString(36).substr(2, 4).toUpperCase(),
-      timestamp: Date.now(),
-      event: `Node Synced: ${providerName} established at ${address.substring(0, 10)}...`,
-      severity: 'LOW',
-      source: 'WALLET_SYNC_PROTOCOL'
-    }, ...prev]);
   };
 
-  const handleRestoreRequest = (walletId: string) => {
-    setRestoringWalletId(walletId);
-    setActiveView(BiometricType.FACIAL);
+  const handleWalletDisconnect = () => {
+    if (!currentUser) return;
+    const updated = { ...currentUser, wallets: [], walletAddress: undefined };
+    setCurrentUser(updated);
+    localStorage.setItem(`profile_${currentUser.username}`, JSON.stringify(updated));
+    setActiveView('DASHBOARD');
   };
 
   const handleMintComplete = (nftUri: string, result: BiometricResult) => {
     if (!currentUser) return;
     const updated = { 
       ...currentUser, 
-      nftUri, 
       isMinted: true, 
+      nftUri, 
       results: [result, ...currentUser.results] 
     };
     setCurrentUser(updated);
     localStorage.setItem(`profile_${currentUser.username}`, JSON.stringify(updated));
   };
 
+  const handleLogin = (user: UserProfile) => {
+    setCurrentUser(user);
+    const hasFace = user.results.some(r => r.type === BiometricType.FACIAL && r.status === 'Pass');
+    if (!hasFace) {
+      setActiveView(BiometricType.FACIAL);
+    } else if (user.isIdGenerated) {
+      setActiveView('DASHBOARD');
+    } else {
+      setActiveView('PROFILE');
+    }
+  };
+
   const renderContent = () => {
-    if (!currentUser) return <ProfileManager onLogin={(u) => { setCurrentUser(u); setOnboardingStep(null); if (u.isIdGenerated) setActiveView('DASHBOARD'); else setActiveView('PROFILE'); }} onStartOnboarding={() => setOnboardingStep(0)} />;
+    if (!currentUser) return <ProfileManager onLogin={handleLogin} onStartOnboarding={() => setOnboardingStep(0)} />;
 
     if (onboardingStep !== null) {
       if (onboardingStep === 0) return <div className="py-12"><FacialScanner onComplete={addResult} /></div>;
@@ -212,12 +180,8 @@ const App: React.FC = () => {
     if (isGeneratingId) {
       return (
         <div className="flex flex-col items-center justify-center py-20 bg-slate-900/50 border border-slate-800 rounded-[3rem] max-w-xl mx-auto animate-in zoom-in-95 duration-700 shadow-2xl backdrop-blur-md">
-          <div className="relative mb-8">
-            <Loader2 size={80} className="text-cyan-400 animate-spin" />
-            <Sparkles size={32} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-cyan-500 animate-pulse" />
-          </div>
-          <h2 className="text-3xl font-black tracking-tighter mb-2 uppercase text-center px-6 text-cyan-400">Synchronizing Identity</h2>
-          <p className="text-slate-500 text-[10px] font-bold tracking-[0.4em] uppercase text-center">Reconstructing Ledger Nodes...</p>
+          <Loader2 size={80} className="text-cyan-400 animate-spin mb-8" />
+          <h2 className="text-3xl font-black tracking-tighter mb-2 uppercase text-center text-cyan-400">Synchronizing Identity</h2>
         </div>
       );
     }
@@ -233,47 +197,23 @@ const App: React.FC = () => {
           onGenerateId={() => handleGenerateId()}
           wallets={currentUser.wallets}
           onWalletConnect={handleWalletConnect}
+          onWalletDisconnect={handleWalletDisconnect}
           isMinted={currentUser.isMinted}
           detectedProviders={detectedProviders}
         />
       );
-      case 'PROFILE': return <ProfileManager onLogin={setCurrentUser} currentUser={currentUser} onStartOnboarding={() => setOnboardingStep(0)} />;
-      case 'DATABANK': return <div className="animate-in slide-in-from-bottom-8 duration-500"><DataBank user={currentUser} /></div>;
-      case 'WALLETS': return (
-        <div className="animate-in slide-in-from-bottom-8 duration-500">
-          <WalletAuditor 
-            wallets={currentUser.wallets} 
-            onRestore={handleRestoreRequest}
-          />
-        </div>
-      );
-      case 'ANALYZER': return <div className="animate-in slide-in-from-bottom-8 duration-500"><RiskAnalyzer /></div>;
-      case BiometricType.FACIAL: return (
-        <div className="py-12">
-          {restoringWalletId && (
-            <div className="mb-6 bg-amber-500/10 border border-amber-500/30 p-4 rounded-2xl flex items-center gap-4 text-amber-400 uppercase font-black text-[10px] tracking-widest max-w-2xl mx-auto">
-              <Lock size={16} /> RESTORATION_PROTOCOL::ACTIVE - FACE_MESH_REQUIRED
-            </div>
-          )}
-          <FacialScanner onComplete={addResult} />
-        </div>
-      );
+      case 'PROFILE': return <ProfileManager onLogin={handleLogin} currentUser={currentUser} onStartOnboarding={() => setOnboardingStep(0)} />;
+      case 'DATABANK': return <DataBank user={currentUser} />;
+      case 'WALLETS': return <WalletAuditor wallets={currentUser.wallets} onDisconnect={handleWalletDisconnect} onRestore={(id) => { setRestoringWalletId(id); setActiveView(BiometricType.FACIAL); }} />;
+      case 'ANALYZER': return <RiskAnalyzer />;
+      case BiometricType.FACIAL: return <div className="py-12"><FacialScanner onComplete={addResult} /></div>;
       case BiometricType.VOICE: return <div className="py-12"><VoiceScanner onComplete={addResult} /></div>;
-      case BiometricType.SCAN_MACHINE: return <div className="py-12"><ScanMachine username={currentUser.username} onComplete={addResult} /></div>;
-      case BiometricType.BLOCKCHAIN: return (
-        <div className="animate-in slide-in-from-bottom-8 duration-500">
-          <BlockchainPortal 
-            sessionSummary={currentUser.results.map(r => r.details).join(' ')} 
-            onMintComplete={handleMintComplete} 
-            onWalletConnect={(addr) => handleWalletConnect(addr, "Injected")}
-            initialAddress={currentUser.wallets[0]?.address}
-            isMinted={currentUser.isMinted} 
-          />
-        </div>
-      );
-      default: return <Dashboard results={currentUser.results} onNavigate={setActiveView} progress={progressPercent} logs={logs} isIdGenerated={currentUser.isIdGenerated} onGenerateId={() => handleGenerateId()} onWalletConnect={(addr) => handleWalletConnect(addr, "Injected")} wallets={currentUser.wallets} isMinted={currentUser.isMinted} detectedProviders={detectedProviders} />;
+      case BiometricType.BLOCKCHAIN: return <BlockchainPortal sessionSummary={currentUser.results.map(r => r.details).join(' ')} onMintComplete={handleMintComplete} onWalletConnect={(addr) => handleWalletConnect(addr, "Injected")} initialAddress={currentUser.wallets[0]?.address} isMinted={currentUser.isMinted} />;
+      default: return <Dashboard results={currentUser.results} onNavigate={setActiveView} progress={progressPercent} logs={logs} isIdGenerated={currentUser.isIdGenerated} onGenerateId={() => handleGenerateId()} onWalletConnect={handleWalletConnect} onWalletDisconnect={handleWalletDisconnect} wallets={currentUser.wallets} isMinted={currentUser.isMinted} detectedProviders={detectedProviders} />;
     }
   };
+
+  const isHome = (activeView as string) === 'DASHBOARD' || (activeView as string) === 'PROFILE';
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-cyan-500/30">
@@ -282,35 +222,18 @@ const App: React.FC = () => {
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/10 blur-[120px] rounded-full"></div>
       </div>
 
-      <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-x-hidden max-w-7xl mx-auto w-full relative z-10 pb-24 md:pb-32">
-        <header className="mb-10 flex flex-col md:flex-row items-center justify-between gap-6 border-b border-slate-900 pb-8">
-          <div className="text-center md:text-left">
-            <h1 className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500 tracking-tighter uppercase mb-1">Biometric_Sphere</h1>
-            <p className="text-slate-500 text-[10px] font-bold flex items-center justify-center md:justify-start gap-2 uppercase tracking-[0.4em]">
-              <ShieldCheck size={12} className="text-cyan-500" /> Multi-Modal Security Protocol
-            </p>
-          </div>
-          
-          {currentUser && (
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 p-2 pr-5 rounded-2xl shadow-xl">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center border bg-cyan-500/5 overflow-hidden shadow-inner transition-all ${currentUser.isMinted ? 'border-emerald-500 shadow-emerald-500/20' : 'border-cyan-500/30'}`}>
-                  {currentUser.nftUri ? <img src={currentUser.nftUri} className="w-full h-full object-cover" /> : <User size={20} className="text-cyan-400" />}
-                </div>
-                <div>
-                  <div className={`text-[8px] font-black uppercase tracking-widest mb-0.5 ${currentUser.isMinted ? 'text-emerald-400' : 'text-slate-500'}`}>
-                    {currentUser.isMinted ? 'ANCHORED_NODE' : 'VERIFIED_NODE'}
-                  </div>
-                  <div className="text-xs font-bold tracking-tight uppercase truncate max-w-[100px]">{currentUser.username}</div>
-                </div>
-              </div>
-            </div>
-          )}
-        </header>
+      {currentUser && (
+        <Header 
+          currentUser={currentUser} 
+          activeView={activeView} 
+          showBack={!isHome && activeView !== 'PROFILE'} 
+          onBack={() => setActiveView('DASHBOARD')}
+          onProfileClick={() => setActiveView('PROFILE')}
+        />
+      )}
 
-        <div className="w-full min-h-[60vh] flex flex-col">
-          {renderContent()}
-        </div>
+      <main className={`flex-1 p-4 md:p-6 lg:p-8 overflow-x-hidden max-w-7xl mx-auto w-full relative z-10 ${currentUser ? 'pt-24 pb-32' : ''}`}>
+        {renderContent()}
       </main>
 
       {currentUser?.isIdGenerated && onboardingStep === null && (
